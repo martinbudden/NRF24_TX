@@ -74,11 +74,11 @@ void INAV_TX::begin(int _protocol, const uint8_t *_txAddr)
 // The hopping channels are determined by the txId
 void INAV_TX::setHoppingChannels(void)
 {
-    uint32_t addr = txAddr[0];
-    addr = addr & 0x1f;
-    const uint32_t inc = (addr << 24) | (addr << 16) | (addr << 8) | addr;
-    uint32_t * const prfChannels = (uint32_t *)rfChannels;
-    *prfChannels = 0x10314259 + inc;
+    const uint8_t inc = txAddr[0] & 0x07;
+    rfChannels[0] = 0x10 + inc;
+    rfChannels[1] = 0x1C + inc;
+    rfChannels[2] = 0x28 + inc;
+    rfChannels[3] = 0x34 + inc;
 }
 
 void INAV_TX::setRcChannels(uint16_t *_rcChannels)
@@ -154,9 +154,9 @@ void INAV_TX::setBound(void)
 {
     protocolState = STATE_DATA;
     nrf24->writeRegisterMulti(NRF24L01_10_TX_ADDR, txAddr, TX_ADDR_LEN);
-//    setHoppingChannels();
-  //  rfChannelIndex = 0;
-    //nrf24->setChannel(rfChannels[0]);
+    setHoppingChannels();
+    rfChannelIndex = 0;
+    nrf24->setChannel(rfChannels[0]);
 }
 
 void INAV_TX::transmitPacket(void)
@@ -171,7 +171,7 @@ void INAV_TX::transmitPacket(void)
             buildBindPacket();
         }
     } else {
-//        hopToNextChannel();
+        hopToNextChannel();
         buildDataPacket();
     }
     nrf24->writePayload(payload, payloadSize);
