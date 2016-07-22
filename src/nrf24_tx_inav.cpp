@@ -51,10 +51,8 @@ INAV_TX::INAV_TX(uint8_t _ce_pin, uint8_t _csn_pin)
 
 void INAV_TX::begin(int _protocol, const uint8_t *_txAddr)
 {
-    protocol = protocol;
-    if (_txAddr) {
-        memcpy(txAddr, txAddr, sizeof(txAddr));
-    }
+    protocol = _protocol;
+    memcpy(txAddr, _txAddr ? _txAddr : txAddrBind, sizeof(txAddr));
 
     protocolState = STATE_BIND;
     transmitPeriodUs = TRANSMIT_PERIOD_US;
@@ -155,10 +153,10 @@ void INAV_TX::buildDataPacket(void)
 void INAV_TX::setBound(void)
 {
     protocolState = STATE_DATA;
-    setHoppingChannels();
-    rfChannelIndex = 0; // so first hop sets channel to channel zero
-    nrf24->setChannel(rfChannels[0]);
     nrf24->writeRegisterMulti(NRF24L01_10_TX_ADDR, txAddr, TX_ADDR_LEN);
+//    setHoppingChannels();
+  //  rfChannelIndex = 0;
+    //nrf24->setChannel(rfChannels[0]);
 }
 
 void INAV_TX::transmitPacket(void)
@@ -173,7 +171,7 @@ void INAV_TX::transmitPacket(void)
             buildBindPacket();
         }
     } else {
-        hopToNextChannel();
+//        hopToNextChannel();
         buildDataPacket();
     }
     nrf24->writePayload(payload, payloadSize);

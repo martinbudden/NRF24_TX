@@ -100,6 +100,7 @@ public:
     NRF24_TX(NRF24L01 *_nrf24);
     NRF24_TX(uint8_t ce_pin, uint8_t csn_pin);
     uint32_t transmitPeriodMs(void) const {return transmitPeriodUs / 1000;}
+    void setRfPower(uint8_t rfPower) {nrf24->setRfPower(rfPower);}
     // debugging and instrumentation functions
     const uint8_t *payloadPtr(void) const {return payload;}
     int getPayloadSize(void) const {return payloadSize;}

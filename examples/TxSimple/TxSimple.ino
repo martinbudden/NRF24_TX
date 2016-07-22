@@ -22,8 +22,8 @@ static const int HEADLESS_PIN = 2;
 
 uint8_t txAddr[INAV_TX::TX_ADDR_LEN];
 // uncomment one of the USE_ #defines below to specify the protocol to use
-//#define USE_INAV
-#define USE_SYMA
+#define USE_INAV
+//#define USE_SYMA
 
 #if defined(USE_INAV)
 INAV_TX nrf24(CE_PIN, CSN_PIN);
@@ -85,10 +85,14 @@ void printRcData(void)
   Serial.print(rcChannels[0]+1000);
 //  Serial.print("  ch2=");
 //  Serial.println(rcChannels[1]+1000);
+#if defined(USE_SYMA)
   Serial.print("  ps=");
   Serial.print(nrf24.convertFromPwmSigned(rcChannels[0]));
   Serial.print("  pu=");
   Serial.println(nrf24.convertFromPwmUnsigned(rcChannels[0]));
+#else
+  Serial.println("");
+#endif
 }
 
 void loop(void)
