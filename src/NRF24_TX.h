@@ -106,5 +106,6 @@ public:
     uint16_t getPayloadCrc(void) const {return payloadCrc;}
     int getChannel(void) const {return nrf24->getChannel();}
     uint8_t getProtocol(void)const {return protocol;}
+    uint8_t getProtocolState(void)const {return protocolState;}
 };
 

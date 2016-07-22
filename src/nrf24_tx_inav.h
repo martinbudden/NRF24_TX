@@ -39,8 +39,8 @@ private:
     static uint8_t txAddr[TX_ADDR_LEN];
 
     enum {PAYLOAD_SIZE = 16};
-    enum {TRANSMIT_PERIOD_US = 5000}; // 5ms, 200 Hz
-    enum {BIND_PACKETS_TO_SEND = 1000}; // 5 seconds of bind packets
+    enum {TRANSMIT_PERIOD_US = 4000}; // 4ms, 250 Hz
+    enum {BIND_PACKETS_TO_SEND = 375}; // 1.5 seconds of bind packets
     enum {RATE_LOW = 0, RATE_MID = 1, RATE_HIGH = 2};
     enum {
         FLAG_FLIP     = 0x01,

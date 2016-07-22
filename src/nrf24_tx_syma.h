@@ -41,13 +41,16 @@ private:
     static const uint8_t txAddrX5C[TX_ADDR_LEN];
 
     enum {PAYLOAD_SIZE_SYMA_X = 10, PAYLOAD_SIZE_SYMA_X5C = 16};
-    enum {TRANSMIT_PERIOD_US = 5000}; // 5ms, 200 Hz
-    enum {BIND_PACKETS_TO_SEND = 1000}; // 5 seconds of bind packets
+    enum {TRANSMIT_PERIOD_US = 4000}; // 4ms, 250 Hz
+    enum {BIND_PACKETS_TO_SEND = 345}; // 5 seconds of bind packets
     uint16_t bindPacketCount;
     uint32_t packetCount;
 private:
     uint8_t calcChecksum(void);
     void setBound(void);
+public:
+    uint8_t convertFromPwmUnsigned(uint32_t pwm);
+    uint8_t convertFromPwmSigned(uint32_t pwm);
 protected:
     virtual void hopToNextChannel(void);
     virtual void setHoppingChannels(void);

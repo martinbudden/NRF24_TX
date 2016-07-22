@@ -65,9 +65,7 @@ SYMA_TX::SYMA_TX(uint8_t _ce_pin, uint8_t _csn_pin)
 void SYMA_TX::begin(int _protocol, const uint8_t *_txAddr)
 {
     protocol = _protocol;
-    if (_txAddr) {
-        memcpy(txAddr, _txAddr, sizeof(txAddr));
-    }
+    memcpy(txAddr, _txAddr ? _txAddr : txAddrBind, sizeof(txAddr));
 
     transmitPeriodUs = TRANSMIT_PERIOD_US;
     if (protocol == SYMA_X) {
@@ -169,21 +167,22 @@ void SYMA_TX::buildBindPacket(void)
     }
 }
 
-static uint8_t convertFromPwmUnsigned(uint16_t pwm)
+uint8_t SYMA_TX::convertFromPwmUnsigned(uint32_t pwm)
 {
-    return (uint8_t)(((pwm - PWM_RANGE_MIN) * 255) / (PWM_RANGE_MAX - PWM_RANGE_MIN));
+    pwm += PWM_RANGE_MIN;
+    return (uint8_t)(((pwm - PWM_RANGE_MIN) * 255) / PWM_RANGE);
 }
 
 // Channel values are sign + magnitude 8bit values
-static uint8_t convertFromPwmSigned(uint16_t pwm)
+uint8_t SYMA_TX::convertFromPwmSigned(uint32_t pwm)
 {
-    uint16_t ret;
+    int32_t ret;
 
     pwm += PWM_RANGE_MIN;
     if (pwm < PWM_RANGE_MIDDLE) {
-        ret = 0x80 | (((PWM_RANGE_MIDDLE - pwm) * 127) / (PWM_RANGE_MAX - PWM_RANGE_MIN));
+        ret = 0x80 | (((PWM_RANGE_MIDDLE - pwm) * 127) / (PWM_RANGE / 2));
     } else {
-        ret = ((pwm - PWM_RANGE_MIDDLE) * 127) / (PWM_RANGE_MAX - PWM_RANGE_MIN);
+        ret = ((pwm - PWM_RANGE_MIDDLE) * 127) / (PWM_RANGE / 2);
     }
     return (uint8_t)ret;
 }
@@ -231,6 +230,7 @@ void SYMA_TX::setBound(void)
 {
     protocolState = STATE_DATA;
     if (protocol == SYMA_X) {
+        nrf24->writeRegisterMulti(NRF24L01_10_TX_ADDR, txAddr, TX_ADDR_LEN);
         setHoppingChannels();
         rfChannelIndex = 0;
         nrf24->setChannel(rfChannels[0]);

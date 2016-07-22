@@ -33,7 +33,7 @@ static const int rcChannelCount = INAV_TX::RC_CHANNEL_COUNT;
 #elif defined(USE_SYMA)
 SYMA_TX nrf24(CE_PIN, CSN_PIN);
 NRF24_TX *tx = &nrf24;
-static const int protocol = NRF24_TX::SYMA_X5C;
+static const int protocol = NRF24_TX::SYMA_X;
 static const int rcChannelCount = SYMA_TX::RC_CHANNEL_COUNT;
 #endif
 
@@ -68,13 +68,14 @@ uint16_t *readRcChannels(void)
 {
   memset(rcChannels, 0, sizeof(rcChannels));
   // convert analog pin value to range [0, 1000]
-/*  rcChannels[NRF24_TX::RC_CHANNEL_AILERON] = map(analogRead(AILERON_PIN), 13, 1015, 0, 1000);
-  rcChannels[NRF24_TX::RC_CHANNEL_ELEVATOR] = map(analogRead(ELEVATOR_PIN),  1, 1020, 0, 1000);
-  rcChannels[NRF24_TX::RC_CHANNEL_THROTTLE] = map(analogRead(THROTTLE_PIN), 12, 1021, 0, 1000);
-  rcChannels[NRF24_TX::RC_CHANNEL_RUDDER] = map(analogRead(RUDDER_PIN), 34, 1020, 0, 1000);
-  // convert digital pin value to 0 or 1000
-  rcChannels[NRF24_TX::RC_CHANNEL_HEADLESS] = digitalRead(HEADLESS_PIN) ? 1000 : 0;*/
+//  rcChannels[NRF24_TX::RC_CHANNEL_AILERON] = map(analogRead(AILERON_PIN), 0, 732, 0, 1000);
   rcChannels[NRF24_TX::RC_CHANNEL_AILERON] = analogRead(AILERON_PIN);
+  //rcChannels[NRF24_TX::RC_CHANNEL_ELEVATOR] = map(analogRead(ELEVATOR_PIN),  1, 1020, 0, 1000);
+  //rcChannels[NRF24_TX::RC_CHANNEL_THROTTLE] = map(analogRead(THROTTLE_PIN), 12, 1021, 0, 1000);
+  //rcChannels[NRF24_TX::RC_CHANNEL_RUDDER] = map(analogRead(RUDDER_PIN), 34, 1020, 0, 1000);
+
+  // convert digital pin value to 0 or 1000
+  //rcChannels[NRF24_TX::RC_CHANNEL_HEADLESS] = digitalRead(HEADLESS_PIN) ? 1000 : 0;*/
   return rcChannels;
 }
 
@@ -82,8 +83,12 @@ void printRcData(void)
 {
   Serial.print("ch1=");
   Serial.print(rcChannels[0]+1000);
-  Serial.print("  ch2=");
-  Serial.println(rcChannels[1]+1000);
+//  Serial.print("  ch2=");
+//  Serial.println(rcChannels[1]+1000);
+  Serial.print("  ps=");
+  Serial.print(nrf24.convertFromPwmSigned(rcChannels[0]));
+  Serial.print("  pu=");
+  Serial.println(nrf24.convertFromPwmUnsigned(rcChannels[0]));
 }
 
 void loop(void)
@@ -91,7 +96,7 @@ void loop(void)
   static uint32_t lastTransmitTimeMs = 0;
 
   tx->setRcChannels(readRcChannels());
-//  printRcData();
+  printRcData();
   if (millis() >= lastTransmitTimeMs + tx->transmitPeriodMs()) {
     lastTransmitTimeMs = millis();
     tx->transmitPacket();
