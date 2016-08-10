@@ -24,6 +24,17 @@
 
 #include "NRF24_TX.h"
 
+const char *NRF24_TX::protocolString[NRF24_TX::PROTOCOL_COUNT] = {
+    "iNav",
+    "V202 250Kbps",
+    "V202 1Mbps",
+    "Syma X",
+    "Syma X5C",
+    "CX10",
+    "CX10A",
+    "H8_3D",
+};
+
 NRF24_TX::~NRF24_TX() {}
 
 NRF24_TX::NRF24_TX(NRF24L01* _nrf24)
@@ -42,16 +53,5 @@ void NRF24_TX::hopToNextChannel(void)
         rfChannelIndex = 0;
     }
     nrf24->setChannel(rfChannels[rfChannelIndex]);
-}
-
-void NRF24_TX::initialize(uint8_t baseConfig, uint8_t rfDataRate)
-{
-    nrf24->initialize(baseConfig, rfDataRate);
-
-    nrf24->writeReg(NRF24L01_01_EN_AA, 0); // No auto acknowledgment
-    nrf24->writeReg(NRF24L01_02_EN_RXADDR, BV(NRF24L01_02_EN_RXADDR_ERX_P0));
-    nrf24->writeReg(NRF24L01_03_SETUP_AW, NRF24L01_03_SETUP_AW_5BYTES);   // 5-byte RX/TX address
-    nrf24->writeReg(NRF24L01_08_OBSERVE_TX, 0x00);
-    nrf24->writeReg(NRF24L01_1C_DYNPD, 0x00); // Disable dynamic payload length on all pipes
 }
 

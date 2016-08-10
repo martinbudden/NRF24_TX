@@ -70,7 +70,7 @@ void SYMA_TX::begin(int _protocol, const uint8_t *_txAddr)
     transmitPeriodUs = TRANSMIT_PERIOD_US;
     if (protocol == SYMA_X) {
          // sets PWR_UP, EN_CRC, CRCO - 2 byte CRC, 250Kbps RF data rate
-        NRF24_TX::initialize(BV(NRF24L01_00_CONFIG_EN_CRC) | BV( NRF24L01_00_CONFIG_CRCO), NRF24L01_06_RF_SETUP_RF_DR_250Kbps);
+        nrf24->initializeNoAutoAcknowledgement(BV(NRF24L01_00_CONFIG_EN_CRC) | BV( NRF24L01_00_CONFIG_CRCO), NRF24L01_06_RF_SETUP_RF_DR_250Kbps);
         payloadSize =PAYLOAD_SIZE_SYMA_X;
         nrf24->writeRegisterMulti(NRF24L01_10_TX_ADDR, txAddrBind, TX_ADDR_LEN);
         protocolState = STATE_BIND;
@@ -78,7 +78,7 @@ void SYMA_TX::begin(int _protocol, const uint8_t *_txAddr)
         rfChannels = rfChannelArray;
     } else {
          // sets PWR_UP, EN_CRC, CRCO - 2 byte CRC, 1Mbps RF data rate
-        NRF24_TX::initialize(BV(NRF24L01_00_CONFIG_EN_CRC) | BV( NRF24L01_00_CONFIG_CRCO), NRF24L01_06_RF_SETUP_RF_DR_1Mbps);
+        nrf24->initializeNoAutoAcknowledgement(BV(NRF24L01_00_CONFIG_EN_CRC) | BV( NRF24L01_00_CONFIG_CRCO), NRF24L01_06_RF_SETUP_RF_DR_1Mbps);
         payloadSize = PAYLOAD_SIZE_SYMA_X5C;
         nrf24->writeRegisterMulti(NRF24L01_10_TX_ADDR, txAddrX5C, TX_ADDR_LEN);
         // just go straight into data mode, since the SYMA_X5C protocol does not actually require binding
@@ -178,6 +178,9 @@ uint8_t SYMA_TX::convertFromPwmSigned(uint32_t pwm)
 {
     int32_t ret;
 
+    if (pwm > 1000) {
+        pwm = 1000;
+    }
     pwm += PWM_RANGE_MIN;
     if (pwm < PWM_RANGE_MIDDLE) {
         ret = 0x80 | (((PWM_RANGE_MIDDLE - pwm) * 127) / (PWM_RANGE / 2));

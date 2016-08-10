@@ -49,24 +49,35 @@ INAV_TX::INAV_TX(uint8_t _ce_pin, uint8_t _csn_pin)
     rcChannels = rcChannelArray;
 }
 
-void INAV_TX::begin(int _protocol, const uint8_t *_txAddr)
+void INAV_TX::begin(uint8_t _protocol, const uint8_t *_txAddr)
 {
     protocol = _protocol;
     memcpy(txAddr, _txAddr ? _txAddr : txAddrBind, sizeof(txAddr));
 
     protocolState = STATE_BIND;
+    packetCount = 0;
     transmitPeriodUs = TRANSMIT_PERIOD_US;
-    rfChannelCount = RF_CHANNEL_COUNT;
+    rfChannelCount = 1; // for bind state
+    rfChannels[0] = RF_BIND_CHANNEL;
+    rfChannelHoppingCount = RF_CHANNEL_HOPPING_COUNT_DEFAULT;
     payloadSize = PAYLOAD_SIZE;
 
      // sets PWR_UP, EN_CRC, CRCO - 2 byte CRC, 250Kbps RF data rate
-    NRF24_TX::initialize(BV(NRF24L01_00_CONFIG_EN_CRC) | BV( NRF24L01_00_CONFIG_CRCO), NRF24L01_06_RF_SETUP_RF_DR_250Kbps);
+    nrf24->initialize(BV(NRF24L01_00_CONFIG_EN_CRC) | BV( NRF24L01_00_CONFIG_CRCO), NRF24L01_06_RF_SETUP_RF_DR_250Kbps);
+
+    nrf24->writeReg(NRF24L01_01_EN_AA, BV(NRF24L01_01_EN_AA_ENAA_P0) | BV(NRF24L01_01_EN_AA_ENAA_P0)); // auto acknowledgment on P0, P1
+    nrf24->writeReg(NRF24L01_02_EN_RXADDR, BV(NRF24L01_02_EN_RXADDR_ERX_P0) | BV(NRF24L01_02_EN_RXADDR_ERX_P1));
+    nrf24->writeReg(NRF24L01_03_SETUP_AW, NRF24L01_03_SETUP_AW_5BYTES);   // 5-byte RX/TX address
+    nrf24->writeReg(NRF24L01_04_SETUP_RETR, NRF24L01_04_SETUP_RETR_ARD_2500us | NRF24L01_04_SETUP_RETR_ARC_1); // one retry after 2500us
     nrf24->setRfPower(NRF24L01_06_RF_SETUP_RF_PWR_n12dbm);
 
     nrf24->setChannel(RF_BIND_CHANNEL);
+    nrf24->writeRegisterMulti(NRF24L01_0A_RX_ADDR_P0, txAddrBind, TX_ADDR_LEN); // RX_ADDR_P0 must equal TX_ADDR for auto ACK
     nrf24->writeRegisterMulti(NRF24L01_10_TX_ADDR, txAddrBind, TX_ADDR_LEN);
-
     nrf24->writeReg(NRF24L01_11_RX_PW_P0, payloadSize);
+
+    nrf24->writeReg(NRF24L01_1C_DYNPD, BV(NRF24L01_1C_DYNPD_P0) | BV(NRF24L01_1C_DYNPD_P1)); // dynamic payload length on pipes P0 & P1
+    nrf24->writeReg(NRF24L01_1D_FEATURE, BV(NRF24L01_1D_FEATURE_EN_DPL) | BV(NRF24L01_1D_FEATURE_EN_ACK_PAY));
 
     nrf24->setTxMode(); // enter transmit mode
 }
@@ -74,11 +85,18 @@ void INAV_TX::begin(int _protocol, const uint8_t *_txAddr)
 // The hopping channels are determined by the txId
 void INAV_TX::setHoppingChannels(void)
 {
-    const uint8_t inc = txAddr[0] & 0x07;
-    rfChannels[0] = 0x10 + inc;
-    rfChannels[1] = 0x1C + inc;
-    rfChannels[2] = 0x28 + inc;
-    rfChannels[3] = 0x34 + inc;
+    if (rfChannelHoppingCount == 0) {
+         // just stay on bind channel, useful for debugging
+        rfChannelCount = 1;
+        rfChannels[0] = RF_BIND_CHANNEL;
+        return;
+    }
+    rfChannelCount = rfChannelHoppingCount;
+    uint8_t ch = 0x10 + (txAddr[0] & 0x07);
+    for (int ii = 0; ii < RF_CHANNEL_COUNT_MAX; ++ii) {
+        rfChannels[ii] = ch;
+        ch += 0x0c;
+    }
 }
 
 void INAV_TX::setRcChannels(uint16_t *_rcChannels)
@@ -96,6 +114,7 @@ void INAV_TX::buildBindPacket(void)
     payload[4] = txAddr[2];
     payload[5] = txAddr[3];
     payload[6] = txAddr[4];
+    payload[7] = rfChannelHoppingCount;
 }
 
 void INAV_TX::buildDataPacket(void)
@@ -153,6 +172,7 @@ void INAV_TX::buildDataPacket(void)
 void INAV_TX::setBound(void)
 {
     protocolState = STATE_DATA;
+    nrf24->writeRegisterMulti(NRF24L01_0A_RX_ADDR_P0, txAddr, TX_ADDR_LEN); // RX_ADDR_P0 must equal TX_ADDR for auto ACK
     nrf24->writeRegisterMulti(NRF24L01_10_TX_ADDR, txAddr, TX_ADDR_LEN);
     setHoppingChannels();
     rfChannelIndex = 0;
@@ -167,14 +187,39 @@ void INAV_TX::transmitPacket(void)
             setBound();
             buildDataPacket();
         } else {
-            // no channel hopping in bind phase
+            hopToNextChannel(); // resets PLOS_CNT, but does not change channel in bind phase
             buildBindPacket();
         }
     } else {
-        hopToNextChannel();
+        hopToNextChannel(); // resets PLOS_CNT
         buildDataPacket();
     }
     nrf24->writePayload(payload, payloadSize);
-    nrf24->setTxMode();// enter transmit mode to send the packet
+    nrf24->setTxMode();// enter transmit mode to send the packet, resets ARC_CNT
+}
+
+int INAV_TX::transmitPacketAndWaitForAck(void)
+{
+    transmitPacket(); // asynchronous call
+    ackPayloadSize = 0;
+    while (true) {
+        const uint8_t observeTx = nrf24->readReg(NRF24L01_08_OBSERVE_TX);
+        lostPacketCount = (observeTx & NRF24L01_08_OBSERVE_TX_PLOS_CNT_MASK) >> 4;
+        autoRetryCount = observeTx & NRF24L01_08_OBSERVE_TX_ARC_CNT_MASK;
+
+        //const uint8_t status = nrf24->readReg(NRF24L01_07_STATUS);
+        const uint8_t status = nrf24->readStatus();
+        if (status & BV(NRF24L01_07_STATUS_MAX_RT)) {
+            nrf24->clearAllInterrupts(); // clear MAX_RT interrupt to allow further transmission
+            nrf24->flushTx(); // payload wasn't successfully transmitted, so remove it from TX FIFO
+            break;
+        }
+        if (status & BV(NRF24L01_07_STATUS_TX_DS)) { // NRF24L01_07_STATUS_TX_DS asserted when ack payload received
+            // ack payload recieved
+            ackPayloadSize = nrf24->readDynamicPayloadIfAvailable(ackPayload);
+            break;
+        }
+    }
+    return ackPayloadSize;
 }
 

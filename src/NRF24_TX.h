@@ -31,14 +31,14 @@
 class NRF24_TX {
 public:
     typedef enum {
-        V202_250K = 0,
+        INAV = 0,
+        V202_250K,
         V202_1M,
         SYMA_X,
         SYMA_X5C,
         CX10,
         CX10A,
         H8_3D_H20,
-        INAV,
         PROTOCOL_COUNT
     } protocol_e;
     typedef enum {
@@ -72,6 +72,8 @@ public:
         RC_CHANNEL_HEADLESS = RC_CHANNEL9,
         RC_CHANNEL_RTH = RC_CHANNEL10,
     } rc_channel_e;
+private:
+    static const char *protocolString[PROTOCOL_COUNT];
 protected:
     NRF24L01 *nrf24;
     uint8_t protocol;
@@ -86,13 +88,12 @@ protected:
     uint16_t payloadCrc;
     uint8_t payloadSize;
 protected:
-    void initialize(uint8_t baseConfig, uint8_t rfDataRate);
     virtual void hopToNextChannel(void);
     virtual void setHoppingChannels(void) = 0;
     virtual void buildBindPacket(void) = 0;
     virtual void buildDataPacket(void) = 0;
 public:
-    virtual void begin(int protocol, const uint8_t *txAddr) = 0;
+    virtual void begin(uint8_t protocol, const uint8_t *txAddr) = 0;
     virtual void setRcChannels(uint16_t *rcChannels) = 0;
     virtual void transmitPacket(void) = 0;
 public:
@@ -101,12 +102,13 @@ public:
     NRF24_TX(uint8_t ce_pin, uint8_t csn_pin);
     uint32_t transmitPeriodMs(void) const {return transmitPeriodUs / 1000;}
     void setRfPower(uint8_t rfPower) {nrf24->setRfPower(rfPower);}
-    // debugging and instrumentation functions
+// debugging and instrumentation functions
     const uint8_t *payloadPtr(void) const {return payload;}
     int getPayloadSize(void) const {return payloadSize;}
     uint16_t getPayloadCrc(void) const {return payloadCrc;}
     int getChannel(void) const {return nrf24->getChannel();}
     uint8_t getProtocol(void)const {return protocol;}
     uint8_t getProtocolState(void)const {return protocolState;}
+    const char *getProtocolString(void) const {return protocolString[protocol];}
 };
 
