@@ -28,11 +28,18 @@ public:
     enum {RC_CHANNEL_COUNT = 16};
     enum {TX_ADDR_LEN = 5};
 private:
+    uint8_t ackPayload[NRF24L01_MAX_PAYLOAD_SIZE];
+    uint8_t ackPayloadSize;
+    uint8_t lostPacketCount;
+    uint8_t autoRetryCount;
+
     uint16_t rcChannelArray[RC_CHANNEL_COUNT];
     // radio channels for frequency hopping
-    enum {RF_BIND_CHANNEL = 0x4c};
-    enum {RF_CHANNEL_COUNT = 4};
-    uint8_t rfChannelArray[RF_CHANNEL_COUNT];
+    enum {RF_BIND_CHANNEL = 0x4c}; // channel 76
+    enum {RF_CHANNEL_COUNT_MAX = 8};
+    uint8_t rfChannelArray[RF_CHANNEL_COUNT_MAX];
+    enum {RF_CHANNEL_HOPPING_COUNT_DEFAULT = 4};
+    uint8_t rfChannelHoppingCount;
     enum {STATE_BIND = 0, STATE_ACK = 1, STATE_DATA = 2};
 
     static const uint8_t txAddrBind[TX_ADDR_LEN];
@@ -58,10 +65,17 @@ protected:
 public:
     virtual void setRcChannels(uint16_t *rcChannels);
     virtual void transmitPacket(void);
+    int transmitPacketAndWaitForAck(void);
 public:
     virtual ~INAV_TX();
     INAV_TX(NRF24L01 *nrf24);
     INAV_TX(uint8_t _ce_pin, uint8_t _csn_pin);
-    virtual void begin(int protocol, const uint8_t *nrf24_id = 0);
+    virtual void begin(uint8_t protocol, const uint8_t *nrf24_id = 0);
+
+    const uint8_t *ackPayloadPtr(void) const {return ackPayload;}
+    int getAckPayloadSize(void) const {return ackPayloadSize;}
+    uint8_t getLostPacketCount(void) const {return lostPacketCount;}
+    uint8_t getAutoRetryCount(void) const {return autoRetryCount;}
+    void setRfChannelHoppingCount(uint8_t _rfChannelHoppingCount) {rfChannelHoppingCount = _rfChannelHoppingCount;}
 };
 
